@@ -1,11 +1,9 @@
 // src/server/trpc/router/_app.ts
 import { router } from "../trpc";
-import { exampleRouter } from "./example";
-import { authRouter } from "./auth";
+import { sheetsRouter } from "./sheets";
 
 export const appRouter = router({
-  example: exampleRouter,
-  auth: authRouter,
+  sheets: sheetsRouter,
 });
 
 // export type definition of API
