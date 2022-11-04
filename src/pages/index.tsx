@@ -46,7 +46,6 @@ export const getStaticProps = async () => {
     })
     .filter(hasTitleAndStart);
   calendarData.forEach((event) => (event.start = ISOToHuman(event.start)));
-  console.log(calendarData);
   return {
     props: {
       calendarData,

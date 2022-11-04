@@ -53,14 +53,6 @@ const AttendanceForm = ({
   if (formState.isSubmitting || formState.isSubmitted) {
     return <h2 className="animate-spin text-center text-3xl">👻</h2>;
   }
-  console.log({
-    relevantEvents,
-    relevantTitles,
-    calendarData,
-    relevantDates,
-    selectedDate: watch("eventDate"),
-    selectedEvent: watch("eventTitle"),
-  });
   return (
     <form
       className="form-control mx-auto gap-4 text-xl"
