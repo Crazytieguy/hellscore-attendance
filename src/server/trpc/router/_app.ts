@@ -1,9 +1,9 @@
 // src/server/trpc/router/_app.ts
 import { router } from "../trpc";
-import { sheetsRouter } from "./sheets";
+import { googleRouter } from "./google";
 
 export const appRouter = router({
-  sheets: sheetsRouter,
+  google: googleRouter,
 });
 
 // export type definition of API

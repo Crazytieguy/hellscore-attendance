@@ -1,41 +1,59 @@
-import type { NextPage } from "next";
-import Head from "next/head";
-import { signIn, signOut, useSession } from "next-auth/react";
-import { trpc } from "../utils/trpc";
+import type { InferGetStaticPropsType, NextPage } from "next";
+import { useSession } from "next-auth/react";
+import {
+  getHellscoreEvents,
+  getSheetContent as getUserEvents,
+} from "../server/googleApis";
+import Layout from "../components/Layout";
+import AttendanceForm from "../components/AttendanceForm";
+import { ISOToHuman } from "../utils/dates";
 
-const Home: NextPage = () => {
-  const { data: sessionData } = useSession();
-  const submitRow = trpc.sheets.submitAttendance.useMutation();
+const Home: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
+  calendarData,
+  userEvents,
+}) => {
+  const { data: session } = useSession();
 
   return (
-    <>
-      <Head>
-        <title>Hellscore Attendance</title>
-        <meta name="description" content="Hellscore attendance" />
-        <link
-          rel="icon"
-          href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❤️‍🔥</text></svg>"
-        />
-      </Head>
-      <main className="mx-auto min-h-screen max-w-screen-md p-4">
-        <h1 className="text-center text-3xl font-extrabold leading-normal text-gray-700 md:text-[5rem]">
-          Hellscore Attendance!
-        </h1>
-        <button
-          className="rounded-md border border-black bg-violet-50 px-4 py-2 text-xl shadow-lg hover:bg-violet-100"
-          onClick={() => submitRow.mutateAsync(["Hello from my app!"])}
-        >
-          Add Message
-        </button>
-        <button
-          className="rounded-md border border-black bg-violet-50 px-4 py-2 text-xl shadow-lg hover:bg-violet-100"
-          onClick={sessionData ? () => signOut() : () => signIn()}
-        >
-          {sessionData ? "Sign out" : "Sign in"}
-        </button>
-      </main>
-    </>
+    <Layout>
+      {session ? (
+        <AttendanceForm {...{ calendarData, userEvents, session }} />
+      ) : (
+        <p>אנה התחבר/י כדי למלא את התופס 🙂</p>
+      )}
+    </Layout>
   );
+};
+
+const hasTitleAndStart = (event: {
+  title: string | undefined;
+  start: string | null | undefined;
+}): event is { title: string; start: string } =>
+  event.title && event.start ? true : false;
+
+export const getStaticProps = async () => {
+  const [calendarDataRaw, userEvents] = await Promise.all([
+    getHellscoreEvents(),
+    getUserEvents(),
+  ]);
+  const calendarData = calendarDataRaw
+    .map((event) => {
+      const title = userEvents.find(({ title }) =>
+        event.summary?.startsWith(title)
+      )?.title;
+      const start = event.start?.dateTime;
+      return { title, start };
+    })
+    .filter(hasTitleAndStart);
+  calendarData.forEach((event) => (event.start = ISOToHuman(event.start)));
+  console.log(calendarData);
+  return {
+    props: {
+      calendarData,
+      userEvents,
+    },
+    revalidate: 10,
+  };
 };
 
 export default Home;
