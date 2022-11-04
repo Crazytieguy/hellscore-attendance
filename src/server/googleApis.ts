@@ -20,7 +20,7 @@ export const writeResponseRow = async (row: (string | boolean | number)[]) => {
     spreadsheetId: env.SHEET_ID,
     requestBody: { values: [row] },
     range: "response",
-    valueInputOption: "RAW",
+    valueInputOption: "USER_ENTERED",
   });
 };
 
