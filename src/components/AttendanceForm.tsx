@@ -55,7 +55,7 @@ const AttendanceForm = ({
   }
   return (
     <form
-      className="form-control mx-auto gap-4 text-xl"
+      className="form-control mx-auto items-start gap-4 text-xl"
       onSubmit={handleSubmit(async (values) => {
         await submitRow.mutateAsync(values);
         router.push("/thank-you");
