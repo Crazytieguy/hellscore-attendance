@@ -87,11 +87,11 @@ const AttendanceForm = ({
           ))}
         </select>
       </label>
-      <label>
+      <label className="cursor-pointer">
         <div className="pb-2">האם את/ה מגיע/ה?</div>
         <input type="checkbox" className="toggle" {...register("going")} />
       </label>
-      <label>
+      <label className="cursor-pointer">
         <div className="pb-2">האם הגעת פעם שעברה?</div>
         <input
           type="checkbox"
