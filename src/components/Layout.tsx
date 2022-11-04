@@ -22,7 +22,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           </h1>
           <button
             className="btn"
-            onClick={session ? () => signOut() : () => signIn()}
+            onClick={session ? () => signOut() : () => signIn("google")}
           >
             {session ? "התנתק/י" : "התחבר/י"}
           </button>
