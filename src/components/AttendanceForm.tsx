@@ -115,7 +115,7 @@ const AttendanceForm = ({
           {...register("comments")}
         ></input>
       </label>
-      <button className="btn">שלח טופס</button>
+      <button className="btn self-center px-20">שלח/י טופס</button>
     </form>
   );
 };
