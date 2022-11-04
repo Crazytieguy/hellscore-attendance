@@ -19,7 +19,7 @@ const Home: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
       {session ? (
         <AttendanceForm {...{ calendarData, userEvents, session }} />
       ) : (
-        <p>אנה התחבר/י כדי למלא את התופס 🙂</p>
+        <p>אנא התחבר/י כדי למלא את הטופס 🙂</p>
       )}
     </Layout>
   );
