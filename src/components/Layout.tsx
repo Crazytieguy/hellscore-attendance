@@ -16,8 +16,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         />
       </Head>
       <div className="mx-auto min-h-screen max-w-screen-sm p-4" dir="rtl">
-        <header className="flex justify-between py-4 align-middle">
-          <h1 className="text-3xl font-extrabold leading-normal">
+        <header className="justify-between align-middle sm:flex">
+          <h1 className="pb-4 text-3xl font-extrabold leading-normal">
             סקר נוכחות הלסקור!
           </h1>
           <button
