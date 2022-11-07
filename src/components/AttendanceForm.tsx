@@ -1,7 +1,7 @@
 import { InferGetStaticPropsType } from "next";
 import { trpc } from "../utils/trpc";
 import { Session } from "next-auth";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { attendanceSchema } from "../utils/attendanceSchema";
 import { getStaticProps } from "../pages/index";
 import { useForm, UseFormProps } from "react-hook-form";
@@ -29,7 +29,7 @@ const AttendanceForm = ({
 }: InferGetStaticPropsType<typeof getStaticProps> & { session: Session }) => {
   const submitRow = trpc.google.submitAttendance.useMutation();
   const router = useRouter();
-  const { handleSubmit, watch, register, formState } = useZodForm({
+  const { handleSubmit, watch, register, formState, setValue } = useZodForm({
     schema: attendanceSchema,
   });
   const relevantTitles = useMemo(
@@ -46,6 +46,10 @@ const AttendanceForm = ({
   const relevantDates = relevantEvents
     .filter(({ title }) => title === (watch("eventTitle") || relevantTitles[0]))
     .map(({ start }) => start);
+  const nextDate = relevantDates[0];
+  useEffect(() => {
+    if (nextDate) setValue("eventDate", nextDate);
+  }, [setValue, nextDate]);
   const showWhyNot = !watch("going");
   if (!relevantTitles.length) {
     return <p>No relevant events for you!</p>;
