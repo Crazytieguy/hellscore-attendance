@@ -24,22 +24,27 @@ export const writeResponseRow = async (row: (string | boolean | number)[]) => {
   });
 };
 
+const gsheetDataSchema = z.object({
+  spreadsheetId: z.string(),
+  valueRanges: z.tuple([
+    z.object({
+      values: z.array(z.tuple([z.string()])),
+    }),
+    z.object({
+      values: z.array(z.tuple([z.string().email()])),
+    }),
+  ]),
+});
+
 export const getSheetContent = async () => {
   const response = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
-  const valueRanges = response.data.valueRanges;
-  if (!valueRanges) {
-    throw new Error("No google sheet data");
-  }
-  const [eventTitles, userEmails] = valueRanges.map((vr) => vr.values?.flat());
-  if (!eventTitles || !userEmails) {
-    throw new Error("One of the named ranges is missing");
-  }
-  return eventTitles.map((title, i) => ({
-    title: z.string().parse(title),
-    email: z.string().email().parse(userEmails[i]),
+  const data = gsheetDataSchema.parse(response.data);
+  return data.valueRanges[0].values.map((row, i) => ({
+    title: row[0],
+    email: data.valueRanges[1].values[i]?.[0],
   }));
 };
 
