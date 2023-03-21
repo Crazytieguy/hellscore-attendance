@@ -43,6 +43,10 @@ const AttendanceForm = ({
     () => calendarData.filter(({ title }) => relevantTitles.includes(title)),
     [calendarData, relevantTitles]
   );
+  const sortedRelevantTitles = useMemo(
+    () => [...new Set(relevantEvents.map(({ title }) => title))],
+    [relevantEvents]
+  );
   const relevantDates = relevantEvents
     .filter(({ title }) => title === (watch("eventTitle") || relevantTitles[0]))
     .map(({ start }) => start);
@@ -71,7 +75,7 @@ const AttendanceForm = ({
           className="select-bordered select"
           {...register("eventTitle", { required: true })}
         >
-          {relevantTitles.map((title) => (
+          {sortedRelevantTitles.map((title) => (
             <option value={title} key={title}>
               {title}
             </option>
