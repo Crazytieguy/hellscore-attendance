@@ -48,7 +48,7 @@ const AttendanceForm = ({
     [relevantEvents]
   );
   const relevantDates = relevantEvents
-    .filter(({ title }) => title === (watch("eventTitle") || relevantTitles[0]))
+    .filter(({ title }) => title === (watch("eventTitle") || sortedRelevantTitles[0]))
     .map(({ start }) => start);
   const nextDate = relevantDates[0];
   useEffect(() => {
