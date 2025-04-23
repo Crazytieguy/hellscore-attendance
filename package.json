@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "CI=false next build",
+    "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "test": "jest",
+    "test:manual": "jest",
     "test:watch": "jest --watch"
   },
   "dependencies": {
