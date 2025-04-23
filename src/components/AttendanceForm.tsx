@@ -2,12 +2,13 @@ import { InferGetStaticPropsType } from "next";
 import { trpc } from "../utils/trpc";
 import { Session } from "next-auth";
 import { useEffect, useMemo } from "react";
-import { attendanceSchema } from "../utils/attendanceSchema";
+import { attendanceSchema, sanitizeText } from "../utils/attendanceSchema";
 import { getStaticProps } from "../pages/index";
 import { useForm, UseFormProps } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/router";
+import { useSnackbar } from "notistack";
 
 function useZodForm<TSchema extends z.ZodType>(
   props: Omit<UseFormProps<TSchema["_input"]>, "resolver"> & {
@@ -29,6 +30,7 @@ const AttendanceForm = ({
 }: InferGetStaticPropsType<typeof getStaticProps> & { session: Session }) => {
   const submitRow = trpc.google.submitAttendance.useMutation();
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
   const { handleSubmit, watch, register, formState, setValue } = useZodForm({
     schema: attendanceSchema,
   });
@@ -65,8 +67,20 @@ const AttendanceForm = ({
     <form
       className="form-control mx-auto items-start gap-4 text-xl"
       onSubmit={handleSubmit(async (values) => {
-        await submitRow.mutateAsync(values);
-        router.push("/thank-you");
+        try {
+          // Sanitize text inputs before submission
+          const sanitizedValues = {
+            ...values,
+            whyNot: sanitizeText(values.whyNot),
+            comments: sanitizeText(values.comments)
+          };
+          
+          await submitRow.mutateAsync(sanitizedValues);
+          enqueueSnackbar("Form submitted successfully!", { variant: "success" });
+          router.push("/thank-you");
+        } catch (error) {
+          enqueueSnackbar("Failed to submit the form.", { variant: "error" });
+        }
       })}
     >
       <label>

@@ -1,7 +1,7 @@
 import { router, protectedProcedure } from "../trpc";
 import { getSheetContent, writeResponseRow } from "../../googleApis";
 import { TRPCError } from "@trpc/server";
-import { attendanceSchema } from "../../../utils/attendanceSchema";
+import { attendanceSchema, sanitizeText } from "../../../utils/attendanceSchema";
 
 export const googleRouter = router({
   submitAttendance: protectedProcedure
@@ -23,15 +23,20 @@ export const googleRouter = router({
         ) {
           throw new TRPCError({ code: "UNAUTHORIZED" });
         }
+        
+        // Double sanitize text inputs as a safety measure
+        const sanitizedWhyNot = sanitizeText(whyNot);
+        const sanitizedComments = sanitizeText(comments);
+        
         await writeResponseRow([
           userEmail,
           Date.now().toString(),
           eventTitle,
           eventDate,
           going ? "TRUE" : "FALSE",
-          whyNot ?? "",
+          sanitizedWhyNot,
           wentLastTime ? "TRUE" : "FALSE",
-          comments ?? "",
+          sanitizedComments,
         ]);
       }
     ),

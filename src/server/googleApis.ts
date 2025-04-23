@@ -15,13 +15,60 @@ auth.scopes = [
 const sheets = google.sheets({ version: "v4", auth });
 const calendars = google.calendar({ version: "v3", auth });
 
-export const writeResponseRow = async (row: (string | boolean | number)[]) => {
-  return await sheets.spreadsheets.values.append({
-    spreadsheetId: env.SHEET_ID,
-    requestBody: { values: [row] },
-    range: "response",
-    valueInputOption: "USER_ENTERED",
-  });
+export const writeResponseRow = async (
+  row: (string | boolean | number)[],
+  {
+    retry = true,
+    maxRetries = 3,
+  }: {
+    retry?: boolean;
+    maxRetries?: number;
+  } = {}
+) => {
+  // Maximum number of retry attempts
+  let attempt = 0;
+
+  while (attempt < (retry ? maxRetries : 1)) {
+    try {
+      // Exponential backoff delay on retries
+      if (attempt > 0) {
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        console.log(`Retry attempt ${attempt} after ${delay}ms delay`);
+      }
+
+      attempt++;
+
+      return await sheets.spreadsheets.values.append({
+        spreadsheetId: env.SHEET_ID,
+        requestBody: { values: [row] },
+        range: "response",
+        valueInputOption: "USER_ENTERED",
+      });
+    } catch (error: any) {
+      console.error(
+        `Error writing to sheet (attempt ${attempt}/${maxRetries}):`,
+        error
+      );
+
+      // If we've exhausted retries, throw the error
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+
+      // Check if this is a rate limit error or temporary failure
+      const isRetryableError =
+        error?.response?.status === 429 || // Rate limit
+        error?.response?.status === 500 || // Server error
+        error?.message?.includes("quota") ||
+        error?.message?.includes("rate limit");
+
+      // If it's not a retryable error, don't retry
+      if (!isRetryableError) {
+        throw error;
+      }
+    }
+  }
 };
 
 const gsheetDataSchema = z.object({
