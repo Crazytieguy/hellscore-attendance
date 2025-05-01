@@ -84,6 +84,32 @@ const gsheetDataSchema = z.object({
 });
 
 export const getSheetContent = async () => {
+  // If test events are enabled, include test data
+  if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
+    // Get the actual sheet data first
+    const response = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: env.SHEET_ID,
+      ranges: ["user_event_event_title", "user_event_user_email"],
+    });
+    
+    const data = gsheetDataSchema.parse(response.data);
+    const regularEvents = data.valueRanges[0].values.map((row, i) => ({
+      title: row[0],
+      email: data.valueRanges[1].values[i]?.[0],
+    }));
+    
+    // Add test events for all emails in the system
+    const uniqueEmails = [...new Set(regularEvents.map(event => event.email))];
+    const testEvents = uniqueEmails.flatMap(email => [
+      { title: "Test Event", email },
+      { title: "Test Event 2", email }
+    ]);
+    
+    // Combine and return all events
+    return [...regularEvents, ...testEvents];
+  }
+  
+  // Regular behavior when test events are not enabled
   const response = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
