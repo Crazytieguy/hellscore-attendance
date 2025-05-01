@@ -99,7 +99,7 @@ export const getSheetContent = async () => {
 export const getHellscoreEvents = async (): Promise<
   calendar_v3.Schema$Event[]
 > => {
-  if (process.env.TEST_EVENTS) {
+  if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
     const testEvents: calendar_v3.Schema$Event[] = [
       {
         id: "1",
