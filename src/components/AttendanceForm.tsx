@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/router";
 import { useSnackbar } from "notistack";
+import { ErrorAccordion } from "./ErrorAccordion";
 
 function useZodForm<TSchema extends z.ZodType>(
   props: Omit<UseFormProps<TSchema["_input"]>, "resolver"> & {
@@ -50,7 +51,9 @@ const AttendanceForm = ({
     [relevantEvents]
   );
   const relevantDates = relevantEvents
-    .filter(({ title }) => title === (watch("eventTitle") || sortedRelevantTitles[0]))
+    .filter(
+      ({ title }) => title === (watch("eventTitle") || sortedRelevantTitles[0])
+    )
     .map(({ start }) => start);
   const nextDate = relevantDates[0];
   useEffect(() => {
@@ -72,14 +75,24 @@ const AttendanceForm = ({
           const sanitizedValues = {
             ...values,
             whyNot: sanitizeText(values.whyNot),
-            comments: sanitizeText(values.comments)
+            comments: sanitizeText(values.comments),
           };
-          
+
           await submitRow.mutateAsync(sanitizedValues);
-          enqueueSnackbar("Form submitted successfully!", { variant: "success" });
+          enqueueSnackbar("Form submitted successfully!", {
+            variant: "success",
+          });
           router.push("/thank-you");
         } catch (error) {
-          enqueueSnackbar("Failed to submit the form.", { variant: "error" });
+          enqueueSnackbar(
+            <ErrorAccordion
+              title="Failed to submit the form"
+              details={
+                error instanceof Error ? error.message : JSON.stringify(error)
+              }
+            />,
+            { variant: "error" }
+          );
         }
       })}
     >
