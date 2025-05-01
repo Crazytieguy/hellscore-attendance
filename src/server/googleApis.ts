@@ -104,11 +104,15 @@ export const getHellscoreEvents = async (): Promise<
       {
         id: "1",
         start: {
-          dateTime: "2023-10-01T10:00:00+02:00",
+          dateTime: new Date(
+            new Date().getTime() + 60 * 60 * 1000
+          ).toISOString(),
           timeZone: "Europe/Berlin",
         },
         end: {
-          dateTime: "2023-10-01T12:00:00+02:00",
+          dateTime: new Date(
+            new Date().getTime() + 2 * 60 * 60 * 1000
+          ).toISOString(),
           timeZone: "Europe/Berlin",
         },
         summary: "Test Event",
