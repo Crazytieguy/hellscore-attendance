@@ -3,6 +3,9 @@ import { z } from "zod";
 import { env } from "../env/server.mjs";
 import { nowISO } from "../utils/dates";
 
+// If we need to check if we're running in a build environment (like Vercel build)
+// const isBuildEnvironment = () => process.env.NEXT_PHASE === 'PHASE_PRODUCTION_BUILD' || process.env.VERCEL_ENV === 'production';
+
 const auth = google.auth.fromJSON(
   JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS)
 ) as Auth.JWT & { scopes: string[] };
@@ -92,7 +95,7 @@ export const getSheetContent = async (): Promise<
     isTest?: boolean;
   }>
 > => {
-  // If test events are enabled, include test data
+    // If test events are enabled, include test data
   if (isTestEnvironment()) {
     // Get the actual sheet data first
     const response = await sheets.spreadsheets.values.batchGet({
@@ -133,7 +136,7 @@ interface EventResponse extends calendar_v3.Schema$Event {
 
 // recurringEventId
 export const getHellscoreEvents = async (): Promise<EventResponse[]> => {
-  if (isTestEnvironment()) {
+    if (isTestEnvironment()) {
     const testEvents: EventResponse[] = [
       {
         id: "1",
