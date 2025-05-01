@@ -1,4 +1,4 @@
-import { Auth, google } from "googleapis";
+import { Auth, calendar_v3, google } from "googleapis";
 import { z } from "zod";
 import { env } from "../env/server.mjs";
 import { nowISO } from "../utils/dates";
@@ -96,7 +96,44 @@ export const getSheetContent = async () => {
 };
 
 // recurringEventId
-export const getHellscoreEvents = async () => {
+export const getHellscoreEvents = async (): Promise<
+  calendar_v3.Schema$Event[]
+> => {
+  if (process.env.TEST_EVENTS) {
+    const testEvents: calendar_v3.Schema$Event[] = [
+      {
+        id: "1",
+        start: {
+          dateTime: "2023-10-01T10:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        end: {
+          dateTime: "2023-10-01T12:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        summary: "Test Event",
+        description: "This is a test event",
+        location: "Test Location",
+        status: "confirmed",
+      },
+      {
+        id: "2",
+        start: {
+          dateTime: "2023-10-02T14:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        end: {
+          dateTime: "2023-10-02T16:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        summary: "Test Event 2",
+        description: "This is another test event",
+        location: "Test Location 2",
+        status: "confirmed",
+      },
+    ];
+    return testEvents;
+  }
   const response = await calendars.events.list({
     calendarId: "6bo68oo6iujc4obpo3fvanpd24@group.calendar.google.com",
     maxAttendees: 1,
@@ -107,7 +144,7 @@ export const getHellscoreEvents = async () => {
   });
   const items = response.data.items;
   if (!items) {
-    throw new Error("No items in hellscore calendar???");
+    throw new Error("No items in Hellscore calendar???");
   }
   return items;
 };
