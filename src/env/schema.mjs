@@ -16,6 +16,7 @@ export const serverSchema = z.object({
     process.env.VERCEL ? z.string() : z.string().url()
   ),
   SHEET_ID: z.string(),
+  TEST_SHEET_ID: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_CREDENTIALS: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CLIENT_ID: z.string(),

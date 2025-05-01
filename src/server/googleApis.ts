@@ -40,7 +40,7 @@ export const writeResponseRow = async (
       attempt++;
 
       return await sheets.spreadsheets.values.append({
-        spreadsheetId: env.SHEET_ID,
+        spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
         requestBody: { values: [row] },
         range: "response",
         valueInputOption: "USER_ENTERED",
@@ -94,7 +94,7 @@ export const getSheetContent = async (): Promise<
   if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
     // Get the actual sheet data first
     const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: env.SHEET_ID,
+      spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
       ranges: ["user_event_event_title", "user_event_user_email"],
     });
 
@@ -115,7 +115,7 @@ export const getSheetContent = async (): Promise<
 
   // Regular behavior when test events are not enabled
   const response = await sheets.spreadsheets.values.batchGet({
-    spreadsheetId: env.SHEET_ID,
+    spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
   const data = gsheetDataSchema.parse(response.data);
