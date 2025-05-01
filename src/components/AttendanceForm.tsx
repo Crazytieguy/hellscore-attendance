@@ -43,7 +43,7 @@ const AttendanceForm = ({
     [userEvents, session]
   );
   const relevantEvents = useMemo(
-    () => calendarData.filter(({ title }) => relevantTitles.includes(title)),
+    () => calendarData.filter(({ title }) => Boolean(title) && relevantTitles.includes(title as string)),
     [calendarData, relevantTitles]
   );
   const sortedRelevantTitles = useMemo(
@@ -116,7 +116,7 @@ const AttendanceForm = ({
           {...register("eventDate", { required: true })}
         >
           {relevantDates.map((date) => (
-            <option value={date} key={date}>
+            Boolean(date) && <option value={date as string} key={date}>
               {date}
             </option>
           ))}
