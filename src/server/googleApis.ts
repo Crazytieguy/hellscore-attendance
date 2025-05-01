@@ -15,6 +15,8 @@ auth.scopes = [
 const sheets = google.sheets({ version: "v4", auth });
 const calendars = google.calendar({ version: "v3", auth });
 
+const isTest = process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1";
+
 export const writeResponseRow = async (
   row: (string | boolean | number)[],
   {
@@ -91,10 +93,10 @@ export const getSheetContent = async (): Promise<
   }>
 > => {
   // If test events are enabled, include test data
-  if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
+  if (isTest) {
     // Get the actual sheet data first
     const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
+      spreadsheetId: env.TEST_SHEET_ID,
       ranges: ["user_event_event_title", "user_event_user_email"],
     });
 
@@ -115,7 +117,7 @@ export const getSheetContent = async (): Promise<
 
   // Regular behavior when test events are not enabled
   const response = await sheets.spreadsheets.values.batchGet({
-    spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
+    spreadsheetId: env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
   const data = gsheetDataSchema.parse(response.data);
@@ -131,7 +133,7 @@ interface EventResponse extends calendar_v3.Schema$Event {
 
 // recurringEventId
 export const getHellscoreEvents = async (): Promise<EventResponse[]> => {
-  if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
+  if (isTest) {
     const testEvents: EventResponse[] = [
       {
         id: "1",
