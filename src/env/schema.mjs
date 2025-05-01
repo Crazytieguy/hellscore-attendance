@@ -19,6 +19,7 @@ export const serverSchema = z.object({
   GOOGLE_SERVICE_ACCOUNT_CREDENTIALS: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   GOOGLE_CLIENT_ID: z.string(),
+  TEST_EVENTS: z.boolean().optional(),
 });
 
 /**
