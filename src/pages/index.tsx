@@ -28,7 +28,8 @@ const Home: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
 const hasTitleAndStart = (event: {
   title: string | undefined;
   start: string | null | undefined;
-}): event is { title: string; start: string } =>
+  isTest?: boolean;
+}): event is { title: string; start: string; isTest?: boolean } =>
   event.title && event.start ? true : false;
 
 export const getStaticProps = async () => {
@@ -42,10 +43,14 @@ export const getStaticProps = async () => {
         event.summary?.startsWith(title)
       )?.title;
       const start = event.start?.dateTime;
-      return { title, start };
+      return { title, start, isTest: event.isTest };
     })
     .filter(hasTitleAndStart);
-  calendarData.forEach((event) => (event.start = ISOToHuman(event.start)));
+  calendarData.forEach((event) => {
+    if (event.start) {
+      event.start = ISOToHuman(event.start);
+    }
+  });
   return {
     props: {
       calendarData,

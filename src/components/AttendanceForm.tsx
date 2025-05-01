@@ -38,7 +38,7 @@ const AttendanceForm = ({
   const relevantTitles = useMemo(
     () =>
       userEvents
-        .filter(({ email }) => email === session.user?.email)
+        .filter(({ isTest, email }) => isTest || email === session.user?.email)
         .map(({ title }) => title),
     [userEvents, session]
   );
@@ -61,7 +61,7 @@ const AttendanceForm = ({
   }, [setValue, nextDate]);
   const showWhyNot = !watch("going");
   if (!relevantTitles.length) {
-    return <p>No relevant events for you!</p>;
+    return <p>לא נמצאו אירועים רלוונטיים עבורך ({session.user?.email})!</p>;
   }
   if (formState.isSubmitting || formState.isSubmitted) {
     return <h2 className="animate-spin text-center text-3xl">👻</h2>;
@@ -79,14 +79,14 @@ const AttendanceForm = ({
           };
 
           await submitRow.mutateAsync(sanitizedValues);
-          enqueueSnackbar("Form submitted successfully!", {
+          enqueueSnackbar("נוכחותך נרשמה!", {
             variant: "success",
           });
           router.push("/thank-you");
         } catch (error) {
           enqueueSnackbar(
             <ErrorAccordion
-              title="Failed to submit the form"
+              title="שגיאה בשליחת הטופס"
               details={
                 error instanceof Error ? error.message : JSON.stringify(error)
               }

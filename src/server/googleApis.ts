@@ -83,7 +83,13 @@ const gsheetDataSchema = z.object({
   ]),
 });
 
-export const getSheetContent = async () => {
+export const getSheetContent = async (): Promise<
+  Array<{
+    title: string;
+    email?: string;
+    isTest?: boolean;
+  }>
+> => {
   // If test events are enabled, include test data
   if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
     // Get the actual sheet data first
@@ -91,24 +97,22 @@ export const getSheetContent = async () => {
       spreadsheetId: env.SHEET_ID,
       ranges: ["user_event_event_title", "user_event_user_email"],
     });
-    
+
     const data = gsheetDataSchema.parse(response.data);
     const regularEvents = data.valueRanges[0].values.map((row, i) => ({
       title: row[0],
       email: data.valueRanges[1].values[i]?.[0],
     }));
-    
-    // Add test events for all emails in the system
-    const uniqueEmails = [...new Set(regularEvents.map(event => event.email))];
-    const testEvents = uniqueEmails.flatMap(email => [
-      { title: "Test Event", email },
-      { title: "Test Event 2", email }
-    ]);
-    
+
+    const testEvents = [
+      { title: "Test Event", isTest: true },
+      { title: "Test Event 2", isTest: true },
+    ];
+
     // Combine and return all events
     return [...regularEvents, ...testEvents];
   }
-  
+
   // Regular behavior when test events are not enabled
   const response = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: env.SHEET_ID,
@@ -121,12 +125,14 @@ export const getSheetContent = async () => {
   }));
 };
 
+interface EventResponse extends calendar_v3.Schema$Event {
+  isTest?: boolean;
+}
+
 // recurringEventId
-export const getHellscoreEvents = async (): Promise<
-  calendar_v3.Schema$Event[]
-> => {
+export const getHellscoreEvents = async (): Promise<EventResponse[]> => {
   if (process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1") {
-    const testEvents: calendar_v3.Schema$Event[] = [
+    const testEvents: EventResponse[] = [
       {
         id: "1",
         start: {
@@ -145,6 +151,7 @@ export const getHellscoreEvents = async (): Promise<
         description: "This is a test event",
         location: "Test Location",
         status: "confirmed",
+        isTest: true,
       },
       {
         id: "2",
@@ -160,6 +167,7 @@ export const getHellscoreEvents = async (): Promise<
         description: "This is another test event",
         location: "Test Location 2",
         status: "confirmed",
+        isTest: true,
       },
     ];
     return testEvents;
