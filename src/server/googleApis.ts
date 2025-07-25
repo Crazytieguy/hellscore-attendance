@@ -2,6 +2,7 @@ import { Auth, calendar_v3, google } from "googleapis";
 import { z } from "zod";
 import { env } from "../env/server.mjs";
 import { nowISO } from "../utils/dates";
+import { captureException } from "@sentry/nextjs";
 
 // If we need to check if we're running in a build environment (like Vercel build)
 // const isBuildEnvironment = () => process.env.NEXT_PHASE === 'PHASE_PRODUCTION_BUILD' || process.env.VERCEL_ENV === 'production';
@@ -18,7 +19,8 @@ auth.scopes = [
 const sheets = google.sheets({ version: "v4", auth });
 const calendars = google.calendar({ version: "v3", auth });
 
-const isTestEnvironment = () => process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1";
+const isTestEnvironment = () =>
+  process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1";
 
 export const writeResponseRow = async (
   row: (string | boolean | number)[],
@@ -95,7 +97,7 @@ export const getSheetContent = async (): Promise<
     isTest?: boolean;
   }>
 > => {
-    // If test events are enabled, include test data
+  // If test events are enabled, include test data
   if (isTestEnvironment()) {
     // Get the actual sheet data first
     const response = await sheets.spreadsheets.values.batchGet({
@@ -103,19 +105,24 @@ export const getSheetContent = async (): Promise<
       ranges: ["user_event_event_title", "user_event_user_email"],
     });
 
-    const data = gsheetDataSchema.parse(response.data);
-    const regularEvents = data.valueRanges[0].values.map((row, i) => ({
-      title: row[0],
-      email: data.valueRanges[1].values[i]?.[0],
-    }));
+    try {
+      const data = gsheetDataSchema.parse(response.data);
+      const regularEvents = data.valueRanges[0].values.map((row, i) => ({
+        title: row[0],
+        email: data.valueRanges[1].values[i]?.[0],
+      }));
 
-    const testEvents = [
-      { title: "Test Event", isTest: true },
-      { title: "Test Event 2", isTest: true },
-    ];
+      const testEvents = [
+        { title: "Test Event", isTest: true },
+        { title: "Test Event 2", isTest: true },
+      ];
 
-    // Combine and return all events
-    return [...regularEvents, ...testEvents];
+      // Combine and return all events
+      return [...regularEvents, ...testEvents];
+    } catch (error) {
+      captureException(error, { extra: { response } });
+      throw new Error(`Failed to parse Google Sheets data: ${error}`);
+    }
   }
 
   // Regular behavior when test events are not enabled
@@ -123,11 +130,16 @@ export const getSheetContent = async (): Promise<
     spreadsheetId: env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
-  const data = gsheetDataSchema.parse(response.data);
-  return data.valueRanges[0].values.map((row, i) => ({
-    title: row[0],
-    email: data.valueRanges[1].values[i]?.[0],
-  }));
+  try {
+    const data = gsheetDataSchema.parse(response.data);
+    return data.valueRanges[0].values.map((row, i) => ({
+      title: row[0],
+      email: data.valueRanges[1].values[i]?.[0],
+    }));
+  } catch (error) {
+    captureException(error, { extra: { response } });
+    throw new Error(`Failed to parse Google Sheets data: ${error}`);
+  }
 };
 
 interface EventResponse extends calendar_v3.Schema$Event {
@@ -136,7 +148,7 @@ interface EventResponse extends calendar_v3.Schema$Event {
 
 // recurringEventId
 export const getHellscoreEvents = async (): Promise<EventResponse[]> => {
-    if (isTestEnvironment()) {
+  if (isTestEnvironment()) {
     const testEvents: EventResponse[] = [
       {
         id: "1",
