@@ -12,6 +12,7 @@ import { trpc } from "../utils/trpc";
 import { attendanceSchema, sanitizeText } from "../utils/attendanceSchema";
 import { getStaticProps } from "../pages/index";
 import { ErrorAccordion } from "./ErrorAccordion";
+import { captureException } from "@sentry/nextjs";
 
 function useZodForm<TSchema extends z.ZodType>(
   props: Omit<UseFormProps<TSchema["_input"]>, "resolver"> & {
@@ -76,18 +77,17 @@ const AttendanceForm = ({
     <form
       className="form-control mx-auto items-start gap-4 text-xl"
       onSubmit={handleSubmit(async (values) => {
+        let sanitizedValues = values;
         try {
           // Sanitize text inputs before submission
-          const sanitizedValues = {
+          sanitizedValues = {
             ...values,
             whyNot: sanitizeText(values.whyNot),
             comments: sanitizeText(values.comments),
           };
 
           await submitRow.mutateAsync(sanitizedValues);
-          enqueueSnackbar("נוכחותך נרשמה!", {
-            variant: "success",
-          });
+          enqueueSnackbar("נוכחותך נרשמה!", { variant: "success" });
           router.push("/thank-you");
         } catch (error) {
           console.error("Error submitting attendance:", error);
@@ -98,6 +98,17 @@ const AttendanceForm = ({
               ? error
               : "Unknown error occurred";
           const isUnknownUserError = includes(errorText, "UNAUTHORIZED");
+
+          captureException(error, {
+            extra: {
+              values,
+              sanitizedValues,
+              formState,
+              userEmail: session.user?.email,
+              isUnknownUserError,
+              errorText,
+            },
+          });
           enqueueSnackbar(
             <ErrorAccordion
               title="שגיאה בשליחת הטופס"
