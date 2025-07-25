@@ -97,37 +97,8 @@ export const getSheetContent = async (): Promise<
     isTest?: boolean;
   }>
 > => {
-  // If test events are enabled, include test data
-  if (isTestEnvironment()) {
-    // Get the actual sheet data first
-    const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: env.TEST_SHEET_ID,
-      ranges: ["user_event_event_title", "user_event_user_email"],
-    });
-
-    try {
-      const data = gsheetDataSchema.parse(response.data);
-      const regularEvents = data.valueRanges[0].values.map((row, i) => ({
-        title: row[0],
-        email: data.valueRanges[1].values[i]?.[0],
-      }));
-
-      const testEvents = [
-        { title: "Test Event", isTest: true },
-        { title: "Test Event 2", isTest: true },
-      ];
-
-      // Combine and return all events
-      return [...regularEvents, ...testEvents];
-    } catch (error) {
-      captureException(error, { extra: { response } });
-      throw new Error(`Failed to parse Google Sheets data: ${error}`);
-    }
-  }
-
-  // Regular behavior when test events are not enabled
   const response = await sheets.spreadsheets.values.batchGet({
-    spreadsheetId: env.SHEET_ID,
+    spreadsheetId: isTestEnvironment() ? env.TEST_SHEET_ID : env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
   try {
