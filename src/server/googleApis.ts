@@ -45,7 +45,7 @@ export const writeResponseRow = async (
       attempt++;
 
       return await sheets.spreadsheets.values.append({
-        spreadsheetId: env.TEST_EVENTS ? env.TEST_SHEET_ID : env.SHEET_ID,
+        spreadsheetId: isTestEnvironment() ? env.TEST_SHEET_ID : env.SHEET_ID,
         requestBody: { values: [row] },
         range: "response",
         valueInputOption: "USER_ENTERED",
