@@ -1,7 +1,7 @@
 import { InferGetStaticPropsType } from "next";
 import { Session } from "next-auth";
 import { useEffect, useMemo } from "react";
-import { some } from "lodash";
+import { includes, isString, some } from "lodash";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/router";
@@ -91,9 +91,13 @@ const AttendanceForm = ({
           router.push("/thank-you");
         } catch (error) {
           console.error("Error submitting attendance:", error);
-          const isUnknownUserError = some(error as object[], {
-            result: { data: { code: "UNAUTHORIZED" } },
-          });
+          const errorText =
+            error instanceof Error
+              ? error.message
+              : isString(error)
+              ? error
+              : "Unknown error occurred";
+          const isUnknownUserError = includes(errorText, "UNAUTHORIZED");
           enqueueSnackbar(
             <ErrorAccordion
               title="שגיאה בשליחת הטופס"
