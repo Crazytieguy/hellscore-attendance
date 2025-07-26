@@ -7,12 +7,12 @@ import { z } from "zod";
 import { useRouter } from "next/router";
 import { useSnackbar } from "notistack";
 import { useForm, UseFormProps } from "react-hook-form";
+import { captureException } from "@sentry/nextjs";
 
 import { trpc } from "../utils/trpc";
 import { attendanceSchema, sanitizeText } from "../utils/attendanceSchema";
 import { getStaticProps } from "../pages/index";
 import { ErrorAccordion } from "./ErrorAccordion";
-import { captureException } from "@sentry/nextjs";
 
 function useZodForm<TSchema extends z.ZodType>(
   props: Omit<UseFormProps<TSchema["_input"]>, "resolver"> & {

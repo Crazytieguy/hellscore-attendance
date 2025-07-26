@@ -3,6 +3,7 @@ import { z } from "zod";
 import { env } from "../env/server.mjs";
 import { nowISO } from "../utils/dates";
 import { captureException } from "@sentry/nextjs";
+import { castArray, compact, concat, head, map, size, zip } from "lodash";
 
 // If we need to check if we're running in a build environment (like Vercel build)
 // const isBuildEnvironment = () => process.env.NEXT_PHASE === 'PHASE_PRODUCTION_BUILD' || process.env.VERCEL_ENV === 'production';
@@ -90,55 +91,50 @@ const gsheetDataSchema = z.object({
   ]),
 });
 
-export const getSheetContent = async (): Promise<
-  Array<{
-    title: string;
-    email?: string;
-    isTest?: boolean;
-  }>
-> => {
-  // If test events are enabled, include test data
-  if (isTestEnvironment()) {
-    // Get the actual sheet data first
-    const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: env.TEST_SHEET_ID,
-      ranges: ["user_event_event_title", "user_event_user_email"],
-    });
+export interface UserEvent {
+  title: string;
+  email: string;
+  isTest?: boolean;
+}
 
-    try {
-      const data = gsheetDataSchema.parse(response.data);
-      const regularEvents = data.valueRanges[0].values.map((row, i) => ({
-        title: row[0],
-        email: data.valueRanges[1].values[i]?.[0],
-      }));
-
-      const testEvents = [
-        { title: "Test Event", isTest: true },
-        { title: "Test Event 2", isTest: true },
-      ];
-
-      // Combine and return all events
-      return [...regularEvents, ...testEvents];
-    } catch (error) {
-      captureException(error, { extra: { response } });
-      throw new Error(`Failed to parse Google Sheets data: ${error}`);
-    }
-  }
-
-  // Regular behavior when test events are not enabled
+export const getSheetContent = async (): Promise<UserEvent[]> => {
   const response = await sheets.spreadsheets.values.batchGet({
-    spreadsheetId: env.SHEET_ID,
+    spreadsheetId: isTestEnvironment() ? env.TEST_SHEET_ID : env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
   try {
     const data = gsheetDataSchema.parse(response.data);
-    return data.valueRanges[0].values.map((row, i) => ({
-      title: row[0],
-      email: data.valueRanges[1].values[i]?.[0],
+    const events = data.valueRanges[0].values;
+    const emails = data.valueRanges[1].values;
+    if (size(events) !== size(emails)) {
+      throw new Error(
+        `Mismatch in number of events (${size(events)}) and emails (${size(
+          emails
+        )}). Response: ${JSON.stringify(response.data || "No data")}`
+      );
+    }
+    const pairs = zip(events, emails) || [];
+    const regularEvents = map(pairs, ([title, email], i) => ({
+      title: head(castArray(title)) || "",
+      email: head(castArray(email)) || "",
     }));
+
+    const testEvents: UserEvent[] = isTestEnvironment()
+      ? [
+          { title: "Test Event", isTest: true, email: "hellscore.it@gmail.com" },
+          { title: "Test Event 2", isTest: true, email: "hellscore.it@gmail.com" },
+        ]
+      : [];
+
+    return compact(concat(regularEvents, testEvents));
   } catch (error) {
     captureException(error, { extra: { response } });
-    throw new Error(`Failed to parse Google Sheets data: ${error}`);
+    console.error("Failed to parse Google Sheets data:", error, response.data);
+    throw new Error(
+      `Failed to parse Google Sheets data: ${error}. Response: ${JSON.stringify(
+        response.data || "No data"
+      )}`
+    );
   }
 };
 
