@@ -1,14 +1,18 @@
 import { InferGetStaticPropsType } from "next";
-import { trpc } from "../utils/trpc";
 import { Session } from "next-auth";
 import { useEffect, useMemo } from "react";
-import { attendanceSchema, sanitizeText } from "../utils/attendanceSchema";
-import { getStaticProps } from "../pages/index";
-import { useForm, UseFormProps } from "react-hook-form";
+import { includes, isString, some } from "lodash";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/router";
 import { useSnackbar } from "notistack";
+import { useForm, UseFormProps } from "react-hook-form";
+import { captureException } from "@sentry/nextjs";
+
+import { trpc } from "../utils/trpc";
+import { attendanceSchema, sanitizeText } from "../utils/attendanceSchema";
+import { getStaticProps } from "../pages/index";
+import { ErrorAccordion } from "./ErrorAccordion";
 
 function useZodForm<TSchema extends z.ZodType>(
   props: Omit<UseFormProps<TSchema["_input"]>, "resolver"> & {
@@ -37,12 +41,16 @@ const AttendanceForm = ({
   const relevantTitles = useMemo(
     () =>
       userEvents
-        .filter(({ email }) => email === session.user?.email)
+        .filter(({ isTest, email }) => isTest || email === session.user?.email)
         .map(({ title }) => title),
     [userEvents, session]
   );
   const relevantEvents = useMemo(
-    () => calendarData.filter(({ title }) => relevantTitles.includes(title)),
+    () =>
+      calendarData.filter(
+        ({ title }) =>
+          Boolean(title) && relevantTitles.includes(title as string)
+      ),
     [calendarData, relevantTitles]
   );
   const sortedRelevantTitles = useMemo(
@@ -50,7 +58,9 @@ const AttendanceForm = ({
     [relevantEvents]
   );
   const relevantDates = relevantEvents
-    .filter(({ title }) => title === (watch("eventTitle") || sortedRelevantTitles[0]))
+    .filter(
+      ({ title }) => title === (watch("eventTitle") || sortedRelevantTitles[0])
+    )
     .map(({ start }) => start);
   const nextDate = relevantDates[0];
   useEffect(() => {
@@ -58,7 +68,7 @@ const AttendanceForm = ({
   }, [setValue, nextDate]);
   const showWhyNot = !watch("going");
   if (!relevantTitles.length) {
-    return <p>No relevant events for you!</p>;
+    return <p>לא נמצאו אירועים רלוונטיים עבורך ({session.user?.email})!</p>;
   }
   if (formState.isSubmitting || formState.isSubmitted) {
     return <h2 className="animate-spin text-center text-3xl">👻</h2>;
@@ -67,26 +77,58 @@ const AttendanceForm = ({
     <form
       className="form-control mx-auto items-start gap-4 text-xl"
       onSubmit={handleSubmit(async (values) => {
+        let sanitizedValues = values;
         try {
           // Sanitize text inputs before submission
-          const sanitizedValues = {
+          sanitizedValues = {
             ...values,
             whyNot: sanitizeText(values.whyNot),
-            comments: sanitizeText(values.comments)
+            comments: sanitizeText(values.comments),
           };
-          
+
           await submitRow.mutateAsync(sanitizedValues);
-          enqueueSnackbar("Form submitted successfully!", { variant: "success" });
+          enqueueSnackbar("נוכחותך נרשמה!", { variant: "success" });
           router.push("/thank-you");
         } catch (error) {
-          enqueueSnackbar("Failed to submit the form.", { variant: "error" });
+          console.error("Error submitting attendance:", error);
+          const errorText =
+            error instanceof Error
+              ? error.message
+              : isString(error)
+              ? error
+              : "Unknown error occurred";
+          const isUnknownUserError = includes(errorText, "UNAUTHORIZED");
+
+          captureException(error, {
+            extra: {
+              values,
+              sanitizedValues,
+              formState,
+              userEmail: session.user?.email,
+              isUnknownUserError,
+              errorText,
+            },
+          });
+          enqueueSnackbar(
+            <ErrorAccordion
+              title="שגיאה בשליחת הטופס"
+              details={
+                isUnknownUserError
+                  ? "נראה שאין לך הרשאות לשלוח טופס זה. אנא פנה למנהל.ת המערכת."
+                  : error instanceof Error
+                  ? error.message
+                  : JSON.stringify(error)
+              }
+            />,
+            { variant: "error" }
+          );
         }
       })}
     >
       <label>
         <div className="pb-2">אירוע</div>
         <select
-          className="select-bordered select"
+          className="select select-bordered"
           {...register("eventTitle", { required: true })}
         >
           {sortedRelevantTitles.map((title) => (
@@ -99,14 +141,17 @@ const AttendanceForm = ({
       <label>
         <div className="pb-2">תאריך</div>
         <select
-          className="select-bordered select"
+          className="select select-bordered"
           {...register("eventDate", { required: true })}
         >
-          {relevantDates.map((date) => (
-            <option value={date} key={date}>
-              {date}
-            </option>
-          ))}
+          {relevantDates.map(
+            (date) =>
+              Boolean(date) && (
+                <option value={date as string} key={date}>
+                  {date}
+                </option>
+              )
+          )}
         </select>
       </label>
       <label className="cursor-pointer">
@@ -125,7 +170,7 @@ const AttendanceForm = ({
         <label>
           <div className="pb-2">נשמח לשמוע למה לא תגיעו 🙂</div>
           <input
-            className="input-bordered input"
+            className="input input-bordered"
             {...register("whyNot")}
           ></input>
         </label>
@@ -133,7 +178,7 @@ const AttendanceForm = ({
       <label>
         <div className="pb-2">הערות נוספות?</div>
         <input
-          className="input-bordered input"
+          className="input input-bordered"
           {...register("comments")}
         ></input>
       </label>

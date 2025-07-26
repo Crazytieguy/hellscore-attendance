@@ -1,7 +1,12 @@
-import { Auth, google } from "googleapis";
+import { Auth, calendar_v3, google } from "googleapis";
 import { z } from "zod";
 import { env } from "../env/server.mjs";
 import { nowISO } from "../utils/dates";
+import { captureException } from "@sentry/nextjs";
+import { castArray, compact, concat, head, map, size, zip } from "lodash";
+
+// If we need to check if we're running in a build environment (like Vercel build)
+// const isBuildEnvironment = () => process.env.NEXT_PHASE === 'PHASE_PRODUCTION_BUILD' || process.env.VERCEL_ENV === 'production';
 
 const auth = google.auth.fromJSON(
   JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS)
@@ -14,6 +19,9 @@ auth.scopes = [
 ];
 const sheets = google.sheets({ version: "v4", auth });
 const calendars = google.calendar({ version: "v3", auth });
+
+const isTestEnvironment = () =>
+  process.env.TEST_EVENTS === "true" || process.env.TEST_EVENTS === "1";
 
 export const writeResponseRow = async (
   row: (string | boolean | number)[],
@@ -40,7 +48,7 @@ export const writeResponseRow = async (
       attempt++;
 
       return await sheets.spreadsheets.values.append({
-        spreadsheetId: env.SHEET_ID,
+        spreadsheetId: isTestEnvironment() ? env.TEST_SHEET_ID : env.SHEET_ID,
         requestBody: { values: [row] },
         range: "response",
         valueInputOption: "USER_ENTERED",
@@ -83,20 +91,100 @@ const gsheetDataSchema = z.object({
   ]),
 });
 
-export const getSheetContent = async () => {
+export interface UserEvent {
+  title: string;
+  email: string;
+  isTest?: boolean;
+}
+
+export const getSheetContent = async (): Promise<UserEvent[]> => {
   const response = await sheets.spreadsheets.values.batchGet({
-    spreadsheetId: env.SHEET_ID,
+    spreadsheetId: isTestEnvironment() ? env.TEST_SHEET_ID : env.SHEET_ID,
     ranges: ["user_event_event_title", "user_event_user_email"],
   });
-  const data = gsheetDataSchema.parse(response.data);
-  return data.valueRanges[0].values.map((row, i) => ({
-    title: row[0],
-    email: data.valueRanges[1].values[i]?.[0],
-  }));
+  try {
+    const data = gsheetDataSchema.parse(response.data);
+    const events = data.valueRanges[0].values;
+    const emails = data.valueRanges[1].values;
+    if (size(events) !== size(emails)) {
+      throw new Error(
+        `Mismatch in number of events (${size(events)}) and emails (${size(
+          emails
+        )}). Response: ${JSON.stringify(response.data || "No data")}`
+      );
+    }
+    const pairs = zip(events, emails) || [];
+    const regularEvents = map(pairs, ([title, email], i) => ({
+      title: head(castArray(title)) || "",
+      email: head(castArray(email)) || "",
+    }));
+
+    const testEvents: UserEvent[] = isTestEnvironment()
+      ? [
+          { title: "Test Event", isTest: true, email: "hellscore.it@gmail.com" },
+          { title: "Test Event 2", isTest: true, email: "hellscore.it@gmail.com" },
+        ]
+      : [];
+
+    return compact(concat(regularEvents, testEvents));
+  } catch (error) {
+    captureException(error, { extra: { response } });
+    console.error("Failed to parse Google Sheets data:", error, response.data);
+    throw new Error(
+      `Failed to parse Google Sheets data: ${error}. Response: ${JSON.stringify(
+        response.data || "No data"
+      )}`
+    );
+  }
 };
 
+interface EventResponse extends calendar_v3.Schema$Event {
+  isTest?: boolean;
+}
+
 // recurringEventId
-export const getHellscoreEvents = async () => {
+export const getHellscoreEvents = async (): Promise<EventResponse[]> => {
+  if (isTestEnvironment()) {
+    const testEvents: EventResponse[] = [
+      {
+        id: "1",
+        start: {
+          dateTime: new Date(
+            new Date().getTime() + 60 * 60 * 1000
+          ).toISOString(),
+          timeZone: "Europe/Berlin",
+        },
+        end: {
+          dateTime: new Date(
+            new Date().getTime() + 2 * 60 * 60 * 1000
+          ).toISOString(),
+          timeZone: "Europe/Berlin",
+        },
+        summary: "Test Event",
+        description: "This is a test event",
+        location: "Test Location",
+        status: "confirmed",
+        isTest: true,
+      },
+      {
+        id: "2",
+        start: {
+          dateTime: "2023-10-02T14:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        end: {
+          dateTime: "2023-10-02T16:00:00+02:00",
+          timeZone: "Europe/Berlin",
+        },
+        summary: "Test Event 2",
+        description: "This is another test event",
+        location: "Test Location 2",
+        status: "confirmed",
+        isTest: true,
+      },
+    ];
+    return testEvents;
+  }
   const response = await calendars.events.list({
     calendarId: "6bo68oo6iujc4obpo3fvanpd24@group.calendar.google.com",
     maxAttendees: 1,
@@ -107,7 +195,7 @@ export const getHellscoreEvents = async () => {
   });
   const items = response.data.items;
   if (!items) {
-    throw new Error("No items in hellscore calendar???");
+    throw new Error("No items in Hellscore calendar???");
   }
   return items;
 };

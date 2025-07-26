@@ -1,5 +1,7 @@
 import type { InferGetStaticPropsType, NextPage } from "next";
 import { useSession } from "next-auth/react";
+import { filter, find, forEach, map, startsWith } from "lodash";
+
 import {
   getHellscoreEvents,
   getSheetContent as getUserEvents,
@@ -28,29 +30,32 @@ const Home: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
 const hasTitleAndStart = (event: {
   title: string | undefined;
   start: string | null | undefined;
-}): event is { title: string; start: string } =>
-  event.title && event.start ? true : false;
+  isTest?: boolean;
+}): event is { title: string; start: string; isTest?: boolean } =>
+  Boolean(event.title && event.start);
 
 export const getStaticProps = async () => {
   const [calendarDataRaw, userEvents] = await Promise.all([
     getHellscoreEvents(),
     getUserEvents(),
   ]);
-  const calendarData = calendarDataRaw
-    .map((event) => {
-      const title = userEvents.find(({ title }) =>
-        event.summary?.startsWith(title)
+  const calendarData = filter(
+    map(calendarDataRaw, (event) => {
+      const title = find(userEvents, ({ title }) =>
+        startsWith(event.summary || "", title)
       )?.title;
       const start = event.start?.dateTime;
-      return { title, start };
-    })
-    .filter(hasTitleAndStart);
-  calendarData.forEach((event) => (event.start = ISOToHuman(event.start)));
+      return { title, start, isTest: Boolean(event.isTest) };
+    }),
+    hasTitleAndStart
+  );
+  forEach(calendarData, (event) => {
+    if (event.start) {
+      event.start = ISOToHuman(event.start);
+    }
+  });
   return {
-    props: {
-      calendarData,
-      userEvents,
-    },
+    props: { calendarData, userEvents },
     revalidate: 10,
   };
 };
