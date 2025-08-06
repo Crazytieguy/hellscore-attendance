@@ -1,7 +1,12 @@
+import { TRPCError } from "@trpc/server";
+import { captureException } from "@sentry/nextjs";
+
 import { router, protectedProcedure } from "../trpc";
 import { getSheetContent, writeResponseRow } from "../../googleApis";
-import { TRPCError } from "@trpc/server";
-import { attendanceSchema, sanitizeText } from "../../../utils/attendanceSchema";
+import {
+  attendanceSchema,
+  sanitizeText,
+} from "../../../utils/attendanceSchema";
 
 export const googleRouter = router({
   submitAttendance: protectedProcedure
@@ -21,23 +26,41 @@ export const googleRouter = router({
             ({ title, email }) => userEmail === email && eventTitle === title
           )
         ) {
-          throw new TRPCError({ code: "UNAUTHORIZED" });
+          const error = new TRPCError({ code: "UNAUTHORIZED" });
+          captureException(error, { extra: { userEmail, userEvents } });
+          throw error;
         }
-        
+
         // Double sanitize text inputs as a safety measure
         const sanitizedWhyNot = sanitizeText(whyNot);
         const sanitizedComments = sanitizeText(comments);
-        
-        await writeResponseRow([
-          userEmail,
-          Date.now().toString(),
-          eventTitle,
-          eventDate,
-          going ? "TRUE" : "FALSE",
-          sanitizedWhyNot,
-          wentLastTime ? "TRUE" : "FALSE",
-          sanitizedComments,
-        ]);
+
+        try {
+          await writeResponseRow([
+            userEmail,
+            Date.now().toString(),
+            eventTitle,
+            eventDate,
+            going ? "TRUE" : "FALSE",
+            sanitizedWhyNot,
+            wentLastTime ? "TRUE" : "FALSE",
+            sanitizedComments,
+          ]);
+        } catch (error) {
+          captureException(error, {
+            extra: {
+              userEmail,
+              eventTitle,
+              eventDate,
+              going,
+              whyNot,
+              wentLastTime,
+              comments,
+              sanitizedWhyNot,
+              sanitizedComments,
+            },
+          });
+        }
       }
     ),
 });
